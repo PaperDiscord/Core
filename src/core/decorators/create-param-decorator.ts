@@ -10,6 +10,7 @@ export const createParamDecorator = (
   callbackOrCallbacks:
     | ParamCallback
     | {
+        param?: ParamCallback;
         default?: ParamCallback;
         commands?: ParamCallback;
         events?: {
@@ -75,6 +76,7 @@ export const createParamDecorator = (
             resolver: context => callbackOrCallbacks(context, input),
           }
         : {
+            resolver: context => callbackOrCallbacks.param(context, input),
             resolvers: callbackOrCallbacks,
           },
     );
