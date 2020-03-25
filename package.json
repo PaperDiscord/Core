@@ -11,7 +11,7 @@
     "test:watch": "jest --watchAll",
     "publish:build": "npm run build && npm publish"
   },
-  "types": "./@types",
+  "types": "./@types/index.d.ts",
   "keywords": [],
   "author": "",
   "license": "ISC",
