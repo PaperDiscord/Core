@@ -12,25 +12,40 @@ import { Logger } from '../../common/services/logger';
 import { LoggerLevel } from '../../common/services/logger.service';
 
 /**
- * @Command('hello') => !play hello
+ * The Interface that Represents how the Data is stored, in order for the command to run
  */
-
 export interface Handler {
   data: ICommand;
   func: any;
 }
 
+/**
+ * This class handles the actual command execution
+ *
+ * For example:
+ * `command arg0 arg1 arg2`
+ *
+ * - `command` is handled by the CommandProvider
+ * - `args0 - args2` is handled by this class, the CommandHandler
+ */
 export class CommandHandler {
+  /**
+   * The Handles, and their activation requirement
+   */
   public readonly commandHandlers: Map<string, Handler> = new Map();
 
   private readonly logger = new Logger(`CommandHander`);
 
   constructor(
     public readonly commandProvider: CommandProvider,
+    /** The Class that this CommandHandler is apart of */
     public readonly provider: Provider,
   ) {}
 
   public async init() {
+    /**
+     * This returns all the Commands in the `provider.classPrototype`
+     */
     const commandFunctions: Array<{
       data: ICommand;
       func: any;
@@ -60,8 +75,14 @@ export class CommandHandler {
   private getHandlerForContext(context: Context) {
     const commandContext = context.switchToCommandContext();
 
+    /**
+     * The Command Argument Context
+     */
     const args = commandContext.args();
 
+    /**
+     * The Commands that MIGHT match the command that was sent from the user
+     */
     const handlerEntries = Array.from(this.commandHandlers.keys())
       .map(v => v.split(' '))
       .filter(
@@ -71,6 +92,11 @@ export class CommandHandler {
           entries.some(entry => entry.startsWith(':*')),
       );
 
+    /**
+     * This next part needs a heavy rewrite
+     */
+
+    /** */
     let foundEntry: Handler;
     let general = false;
 
@@ -118,6 +144,9 @@ export class CommandHandler {
     const logger = this.logger.child(`Exec(${commandContext.fullCommand()})`);
 
     logger.verbose(`Getting Handler...`);
+    /**
+     * The command handler that will end up executing the command
+     */
     const handler = this.getHandlerForContext(context);
 
     if (!handler) {
@@ -128,8 +157,16 @@ export class CommandHandler {
       `Found Command Handler: ${this.provider.classPrototype.name}.${handler.data.property}`,
     );
 
+    /**
+     * The Command Handler's Command String
+     *
+     * @example 'play :url'
+     */
     const command = handler.data.metadata.command.split(' ');
 
+    /**
+     * The params to be inserted into the context
+     */
     const params: { [key: string]: string } = {};
 
     logger.verbose(`Setting The Command Params: with ${command.join(' ')}`);
@@ -150,6 +187,9 @@ export class CommandHandler {
     logger.verbose(`Command Params have been set to ${params}`);
 
     logger.verbose(`Resolving Function Parameters to Inject`);
+    /**
+     * The Params to be injected into the function call
+     */
     const resolvedParams = await Promise.all(
       Reflect.getMetadataKeys(handler.data.object.constructor.prototype)
         .filter((v: string) =>

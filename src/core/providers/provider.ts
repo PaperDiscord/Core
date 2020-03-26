@@ -10,11 +10,13 @@ import { OnAllProvidersInit, Type } from '../interfaces';
 import { CommandOptions } from '../commands/command';
 import { ICommander } from '../commands/commander';
 import { CommandProvider } from '../commands/command.provider';
+import { EventHandler } from '../commands/event-handler';
 
 const constructorParamTypes = (o: Type): Type[] =>
   Reflect.getMetadata(CONSTRUCTOR_PARAMTYPES, o) || [];
 
 export class Provider implements OnAllProvidersInit {
+  public readonly eventHandlers: EventHandler[] = [];
   private _hasBeenInitialized = false;
   private _instance: any = undefined;
 
@@ -49,6 +51,8 @@ export class Provider implements OnAllProvidersInit {
         v => this.container.providers.get(v).instance || null,
       ),
     );
+
+    this.eventHandlers.push(await new EventHandler(this).init());
 
     return this;
   }

@@ -9,7 +9,6 @@ import { EventHandler } from './event-handler';
 
 export class CommandProvider {
   public readonly handlers: CommandHandler[] = [];
-  public readonly eventHandlers: EventHandler[] = [];
 
   constructor(
     public readonly container: PaperContainer,
@@ -18,7 +17,6 @@ export class CommandProvider {
 
   public async addProvider(provider: Provider) {
     this.handlers.push(await new CommandHandler(this, provider).init());
-    this.eventHandlers.push(await new EventHandler(provider).init());
   }
 
   public async exec(context: Context) {
