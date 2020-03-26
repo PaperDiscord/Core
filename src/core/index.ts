@@ -12,3 +12,4 @@ export {
   Command,
 } from './commands';
 export { createParamDecorator } from './decorators';
+export { Inject } from './inject';
