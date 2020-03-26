@@ -9,7 +9,7 @@
     "dev": "ts-node-dev ./src/index.ts",
     "test": "jest",
     "test:watch": "jest --watchAll",
-    "publish:build": "npm run build && npm publish"
+    "publish:build": "npm run build && npm publish --access public"
   },
   "types": "./@types/index.d.ts",
   "keywords": [
