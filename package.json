@@ -12,8 +12,20 @@
     "publish:build": "npm run build && npm publish"
   },
   "types": "./@types/index.d.ts",
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "discord",
+    "discord.js",
+    "bots"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paperdiscord/core"
+  },
+  "bugs": {
+    "url": "https://github.com/paperdiscord/core/issues"
+  },
+  "private": false,
+  "author": "KKosyfarinis",
   "license": "ISC",
   "devDependencies": {
     "@types/collections": "^5.0.1",
