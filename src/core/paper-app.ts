@@ -15,7 +15,23 @@ export class PaperApp {
     return this;
   }
 
+  /**
+   * Logs in to the Discord Gateway
+   *
+   * If a token is not provided, then `process.env.TOKEN` is used
+   *
+   * @param token The Discord Bot Token
+   */
   public async login(token: string) {
+    if (!token) {
+      require('dotenv').config();
+      token = process.env.TOKEN;
+    }
+
+    if (!token) {
+      throw Error('Invalid Token');
+    }
+
     try {
       await this.container.client.login(token);
 
