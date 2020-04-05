@@ -1,3 +1,6 @@
-import { createParamDecorator } from '../../core/decorators';
+import { createDecorator } from './create-decorator';
 
-export const App = createParamDecorator(context => context.getApp());
+/**
+ * @publicApi
+ */
+export const App = createDecorator((_, context) => context.getApp());

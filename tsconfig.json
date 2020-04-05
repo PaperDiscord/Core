@@ -11,7 +11,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "incremental": true,
-    "declarationDir": "./@types"
+    "declarationDir": "./dist"
   },
   "include": ["src/**/*", "tests/core"],
   "exclude": ["node_modules", "dist"]
