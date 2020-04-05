@@ -18,6 +18,8 @@ import { Ctx } from '../common/decorators/ctx.decorator';
 import { ExecutionContext } from '../interfaces/execution-context.interface';
 import { SetMetadata } from '../common/decorators/set-metadata.decorator';
 
+let i = 0;
+
 export class ControllerWrapper {
   private readonly logger = new Logger(
     this.instanceWrapper.manager.getProviderClass().name + 'Controller' ??
@@ -29,7 +31,10 @@ export class ControllerWrapper {
   constructor(
     public readonly container: PaperContainer,
     public readonly instanceWrapper: InstanceWrapper,
-  ) {}
+  ) {
+    this.logger.info(`Calling ${i}`);
+    i++;
+  }
 
   private getControllerOptionsData() {
     return this.classReflector.get<ControllerOptionsData>(CONTROLLER_OPTIONS);

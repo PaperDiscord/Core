@@ -32,6 +32,10 @@ export class Context<Args extends Array<any> = any>
     return this.app as any;
   }
 
+  getArgs<T extends Array<any> = any>(): T {
+    return this.args as any;
+  }
+
   private set(functions: any = {}) {
     return functions;
     // return Object.assign(this, functions);
@@ -84,10 +88,10 @@ export class Context<Args extends Array<any> = any>
         return this.set(<Ctx.ClientUserGuildSettingsUpdateContext>{});
       case ContextSource.DiscordEventClientUserSettingsUpdate:
         return this.set(<Ctx.ClientUserSettingsUpdateContext>{});
-      case ContextSource.DiscordEventDisconnect:
-        return this.set(<Ctx.DisconnectContext>{
-          getEvent: arg0,
-        });
+      // case ContextSource.DiscordEventDisconnect:
+      //   return this.set(<Ctx.DisconnectContext>{
+      //     getEvent: arg0,
+      //   });
       case ContextSource.DiscordEventEmojiCreate:
         return this.set(<Ctx.EmojiCreateContext>{
           getEmoji: arg0,

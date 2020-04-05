@@ -28,6 +28,8 @@ export interface ExecutionContext {
 
   getClass<T = any>(): Type<T>;
   switchToCommandContext(): CommandExecutionContext;
+
+  getArgs<T extends Array<any> = any>(): T;
 }
 
 /**
@@ -183,13 +185,13 @@ export interface ClientUserSettingsUpdateContext
   extends EventContext,
     Unknown {}
 
-/** Emitted when the client's WebSocket disconnects and will no longer attempt to reconnect.
- *
- * @publicApi */
-export interface DisconnectContext {
-  /** The WebSocket close event */
-  getEvent(): CloseEvent;
-}
+// /** Emitted when the client's WebSocket disconnects and will no longer attempt to reconnect.
+//  *
+//  * @publicApi */
+// export interface DisconnectContext {
+//   /** The WebSocket close event */
+//   getEvent(): CloseEvent;
+// }
 
 /** Emitted whenever a custom emoji is created in a guild.
  *

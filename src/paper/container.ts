@@ -9,15 +9,22 @@ import { ControllerWrapper } from '../controller/controller-wrapper';
 import { PaperApp } from './app';
 import { ObservableMap } from '../utils/observable-map';
 import { CommandHandler } from '../controller/command/handler';
-import { CONTROLLER_OPTIONS } from '../contants';
+import { CONTROLLER_OPTIONS, EVENT_METHOD_OPTIONS } from '../contants';
 import { Logger } from '../utils/logger';
 import { v4 as uuid } from 'uuid';
 import { ContextSource } from '../context/context-source';
 import { ContextCreator } from '../context/context-creator';
+import { Event } from '../interfaces/events/event-options';
+import { EventWrapper } from '../event/event-wrapper';
+import { EventHandler } from '../event/event-handler';
+import { EventEmitter } from 'events';
+import { PaperDiscordFactory } from './factory';
+import { CanActivate } from '../interfaces/guards/can-activate.interface';
 
-export class PaperContainer {
+export class PaperContainer extends EventEmitter {
   private readonly logger = new Logger(`PaperContainer`);
-  public readonly modules = new Map<Type<any>, Module>();
+  public readonly guards: Map<Type<any>, CanActivate> = new Map();
+  public readonly modules: Map<Type<any>, Module> = new Map();
   public readonly providers: ObservableMap<
     Type<any>,
     InstanceManager
@@ -25,6 +32,7 @@ export class PaperContainer {
   public readonly controllers: Map<Type<any>, ControllerWrapper> = new Map();
   public readonly contextProviders: Map<ContextId, any> = new Map();
   public readonly commandHandlers: Map<string, CommandHandler> = new Map();
+  public readonly eventHandlers: Map<Event, EventHandler[]> = new Map();
   public readonly prefixes: Map<string, string[] | string> = new Map([
     ['*', '!'],
   ]);
@@ -37,6 +45,7 @@ export class PaperContainer {
   }
 
   private constructor(private readonly mainModule: Type<any>) {
+    super();
     this.modules.set(mainModule, new Module(this, mainModule));
   }
 
@@ -53,7 +62,9 @@ export class PaperContainer {
   }
 
   private async setupControllers() {
-    this.logger.verbose(`Setting Up Controllers`);
+    this.logger.verbose(
+      `Setting Up Controllers ${Array.from(this.providers.values()).length}`,
+    );
     return Promise.all(
       Array.from(this.providers.values())
         .filter((instanceManager) =>
@@ -168,6 +179,9 @@ export class PaperContainer {
 
       contextCreator.handler = handler.method;
       contextCreator.class = handler.controller.instanceWrapper.manager.getProviderClass();
+
+      this.emit(Event.PaperCommand, contextCreator.create());
+
       try {
         const response = await handler.call(contextCreator.create());
         if (typeof response === 'string' || response instanceof MessageEmbed) {
@@ -180,10 +194,74 @@ export class PaperContainer {
     });
   }
 
+  public async setupEventWrappers() {
+    this.logger.verbose(`Setting Up Event Wrappers`);
+    return Promise.all(
+      Array.from(this.providers.values())
+        .filter((instanceManager) =>
+          instanceManager.classReflector.get(EVENT_METHOD_OPTIONS),
+        )
+        .map(async (instanceManager) => {
+          console.log(
+            `Setting up for ${instanceManager.getProviderClass().name}`,
+          );
+          return new EventWrapper(this, await instanceManager.get()).init();
+        }),
+    );
+  }
+
+  private async setupDiscordEventEmitter() {
+    return Promise.all(
+      Array.from(this.eventHandlers.keys())
+        .filter((event) => event.startsWith(Event.DiscordEventBase))
+        .map((event) => event.replace(Event.DiscordEventBase, ''))
+        .map((event) => {
+          this.client.on(event as any, (...args) => {
+            this.emit(`${Event.DiscordEventBase}${event}`, args);
+          });
+        }),
+    );
+  }
+
+  public async setupEventCalling() {
+    this.logger.verbose(
+      `Setting up Event Calling for ${
+        Array.from(this.eventHandlers.values()).length
+      } event handlers`,
+    );
+    return Promise.all(
+      Array.from(this.eventHandlers).map(([event, handlers]) => {
+        if (event.startsWith(Event.DiscordEventBase)) {
+          const contextCreator = new ContextCreator<any>();
+          contextCreator.app = this._app;
+          contextCreator.setSource(event);
+          this.client.on(
+            event.replace(Event.DiscordEventBase, '') as any,
+            (...args) => {
+              contextCreator.setArgs(args);
+
+              handlers.forEach((handler) =>
+                handler.call(contextCreator.create()),
+              );
+            },
+          );
+        } else if (event === Event.PaperCommand) {
+          this.on(event, (context) => {
+            handlers.forEach((handler) =>
+              handler.call(Object.assign({}, context)),
+            );
+          });
+        }
+      }),
+    );
+  }
+
   private async init() {
     await this.setupModules();
     await this.setupControllers();
     await this.setupCommandHandlersCalling();
+    // await this.setupEventWrappers();
+    await this.setupEventCalling();
 
     this._app = await PaperApp.create(this);
     return this;

@@ -9,6 +9,7 @@ import { PAPER_MODULE_OPTIONS, USE_MODULE } from '../contants';
 import { Type } from '../interfaces/type.interface';
 import { Logger } from '../utils/logger';
 import { Module as ModuleDecorator } from './module.decorator';
+import { InstanceManager } from '../injector/instance-manager';
 
 export class Module {
   private logger = new Logger(this.moduleClass.name);
@@ -58,20 +59,24 @@ export class Module {
     this.logger.info(`Starting to Initialize ${this.moduleClass.name}`);
     // Initialize the rest of the Modules first
     await this.loadImportedModules();
-    await this.loadControllers();
+    await this.loadProviders();
 
     this._loaded = true;
   }
 
-  private async loadControllers() {
-    const controllers = Array.from(this.controlers.values())
+  private async loadProviders() {
+    Array.from(this.controlers.values())
       .map((provider) => this.getClassFromProvider(provider, 'useClass'))
       .filter(
         (providerClass) =>
           providerClass && !this.container.providers.has(providerClass),
-      );
-
-    // controllers.map(controller => )
+      )
+      .forEach((provider) => {
+        this.container.providers.set(
+          provider,
+          new InstanceManager(this.container, provider),
+        );
+      });
   }
 
   private getClassFromProvider(

@@ -41,12 +41,12 @@ export class Logger {
 
   public verbose(message: string, namespace = this.defaultNamespace) {
     if (this.level <= LoggerLevel.INFO)
-      this.log(message, namespace, chalk.bgMagenta('VERB'));
+      this.log(message, namespace, chalk.magenta('VERB'));
   }
 
   public error(message: string, namespace = this.defaultNamespace) {
     if (this.level <= LoggerLevel.ERROR)
-      this.log(message, namespace, chalk.red('ERR'));
+      this.log(message, namespace, chalk.red('ERR '));
   }
 
   public child(namespace: string) {

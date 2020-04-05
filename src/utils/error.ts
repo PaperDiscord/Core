@@ -6,6 +6,8 @@ export enum ErrorCodes {
   ReflectorAddNotArray = 1,
   InstanceWrapperInvalidMethod = 2,
   InstanceWrapperNoFunctionInjects = 3,
+  GuardDoesNotHaveCanActivate = 4,
+  GuardCannotActivate = 5,
 }
 
 /**

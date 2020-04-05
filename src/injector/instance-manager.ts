@@ -20,6 +20,9 @@ import {
 import {
   INSTANCE_WRAPPER_METHOD_PARAMS,
   INSTANCE_WRAPPER_PROPERTY_INJECTS,
+  EVENT_METHOD_OPTIONS,
+  INSTANCE_WRAPPER_METHOD_GUARD,
+  INSTANCE_WRAPPER_CLASS_GUARD,
 } from '../contants';
 import { Inject } from './inject.decorator';
 import { ContextSource } from '../context/context-source';
@@ -29,6 +32,12 @@ import { PaperDiscordFactory } from '../paper/factory';
 import { Module } from '../module/module.decorator';
 import { ExecutionContext } from '../interfaces/execution-context.interface';
 import { ControllerWrapper } from '../controller/controller-wrapper';
+import { EventWrapper } from '../event/event-wrapper';
+import { CanActivate } from '../interfaces/guards/can-activate.interface';
+import {
+  UseGuardsData,
+  UseGuardsOptions,
+} from '../interfaces/guards/use-guards-options';
 
 export class InstanceManager<T = any> {
   private instances: Map<ContextId, InstanceWrapper> = new Map();
@@ -158,10 +167,9 @@ export class InstanceWrapper<T = any> {
       if (value) this.instance[data.property] = value;
     });
 
-    const controller = await new ControllerWrapper(
-      this.manager.container,
-      this,
-    ).init();
+    if (this.reflector.get(EVENT_METHOD_OPTIONS)) {
+      await new EventWrapper(this.manager.container, this).init();
+    }
 
     return this;
   }
@@ -214,6 +222,72 @@ export class InstanceWrapper<T = any> {
     };
   }
 
+  private async getGuardInstance(guard: Type<any>, context: ExecutionContext) {
+    if (this.manager.container.providers.has(guard)) {
+      return this.manager.container.providers.get(guard).get(context);
+    }
+
+    const instanceManager = new InstanceManager(this.manager.container, guard);
+
+    this.manager.container.providers.set(guard, instanceManager);
+
+    const { instance } = await instanceManager.get(context);
+
+    console.log(
+      'instance',
+      instance,
+      'intance.canActivate',
+      instance.canActivate,
+    );
+
+    return instance;
+  }
+
+  private async callGuards(method: string | symbol, context: ExecutionContext) {
+    /* Run Guards */
+    const globalGuards: CanActivate[] = [];
+    const classGuards: CanActivate[] = await Promise.all(
+      this.classReflector
+        .get<Type<any>[]>(INSTANCE_WRAPPER_CLASS_GUARD, [])
+        .filter((guard) => guard)
+        .flat()
+        .filter((guard, index, arr) => arr.indexOf(guard) === index)
+        .map((guard) => this.getGuardInstance(guard, context)),
+    );
+
+    const methodGuards: CanActivate[] = await Promise.all(
+      this.reflector
+        .get<UseGuardsData[]>(INSTANCE_WRAPPER_METHOD_GUARD, [])
+        .filter((guard) => guard.functionName === method)
+        .map((data) => data.data)
+        .flat()
+        .filter((guard, index, arr) => arr.indexOf(guard) === index)
+        .map((guard) => this.getGuardInstance(guard, context)),
+    );
+
+    for (const guard of globalGuards) {
+      if (!(await guard.canActivate(context)))
+        throw new CustomError({
+          code: ErrorCodes.GuardCannotActivate,
+        });
+    }
+
+    console.log(`Running ${classGuards.length} class guards`);
+    for (const guard of classGuards) {
+      if (!(await guard.canActivate(context)))
+        throw new CustomError({
+          code: ErrorCodes.GuardCannotActivate,
+        });
+    }
+
+    for (const guard of methodGuards) {
+      if (!(await guard.canActivate(context)))
+        throw new CustomError({
+          code: ErrorCodes.GuardCannotActivate,
+        });
+    }
+  }
+
   public async call(
     method: string | symbol,
     options: {
@@ -236,7 +310,13 @@ export class InstanceWrapper<T = any> {
       args = await this.getArgs(method, options.context);
     }
 
-    return await this.instance[method](...args);
+    try {
+      await this.callGuards(method, options.context);
+
+      return await this.instance[method](...args);
+    } catch (e) {
+      this.logger.child(`Guards`).info(`A Guard has returned False`);
+    }
   }
 
   private async getArgs(method: string | symbol, context: ExecutionContext) {
