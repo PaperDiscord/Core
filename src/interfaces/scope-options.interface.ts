@@ -1,3 +1,6 @@
+/**
+ * @publicApi
+ */
 export enum Scope {
   /**
    * One instance exists per entire application

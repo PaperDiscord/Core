@@ -9,10 +9,13 @@ export enum LoggerLevel {
   WARN = 4,
   ERROR = 5,
 }
-
+/**
+ * @publicApi
+ */
 export class Logger {
-  public level: LoggerLevel =
+  public static level =
     Number(process.env.PAPER_LOGGER_LEVEL) || LoggerLevel.DEBUG;
+  public level = Logger.level;
 
   constructor(private readonly defaultNamespace = 'App') {}
 
@@ -36,8 +39,14 @@ export class Logger {
     if (this.level <= LoggerLevel.INFO) this.log(message, namespace, 'INFO');
   }
 
-  public verbose(message: string, namesapce = this.defaultNamespace) {
-    if (this.level <= LoggerLevel.INFO) this.log(message, namesapce, 'VERB');
+  public verbose(message: string, namespace = this.defaultNamespace) {
+    if (this.level <= LoggerLevel.INFO)
+      this.log(message, namespace, chalk.bgMagenta('VERB'));
+  }
+
+  public error(message: string, namespace = this.defaultNamespace) {
+    if (this.level <= LoggerLevel.ERROR)
+      this.log(message, namespace, chalk.red('ERR'));
   }
 
   public child(namespace: string) {
