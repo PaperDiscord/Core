@@ -29,6 +29,13 @@ const setMethodMetadata = (
   Reflect.defineMetadata(key, value, target[propertyKey]);
 };
 
+/**
+ *
+ * @param key
+ * @param metadata
+ *
+ * @publicApi
+ */
 export const SetMetadata = (key: string, metadata: any): Decorator => (
   ...args: any[]
 ) => {
