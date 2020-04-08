@@ -23,6 +23,8 @@ import {
   EVENT_METHOD_OPTIONS,
   INSTANCE_WRAPPER_METHOD_GUARD,
   INSTANCE_WRAPPER_CLASS_GUARD,
+  SERVICE_DATA,
+  SCOPE_DATA,
 } from '../contants';
 import { Inject } from './inject.decorator';
 import { ContextSource } from '../context/context-source';
@@ -31,13 +33,16 @@ import { ContextCreator } from '../context/context-creator';
 import { PaperDiscordFactory } from '../paper/factory';
 import { Module } from '../module/module.decorator';
 import { ExecutionContext } from '../interfaces/execution-context.interface';
-import { ControllerWrapper } from '../controller/controller-wrapper';
 import { EventWrapper } from '../event/event-wrapper';
 import { CanActivate } from '../interfaces/guards/can-activate.interface';
 import {
   UseGuardsData,
   UseGuardsOptions,
 } from '../interfaces/guards/use-guards-options';
+import {
+  ServiceOptions,
+  ServiceData,
+} from '../interfaces/service/service-options.interface';
 
 export class InstanceManager<T = any> {
   private instances: Map<ContextId, InstanceWrapper> = new Map();
@@ -70,30 +75,74 @@ export class InstanceManager<T = any> {
     }
   }
 
+  private async _getInstance(
+    context: ContextId,
+    classProvider: any,
+    scope: Scope,
+  ) {
+    switch (scope) {
+      case Scope.DEFAULT:
+        if (this.instanceWrapper) {
+          return this.instanceWrapper;
+        }
+
+        const paramsForConstructor = this.injector
+          .getConstructorParams()
+          .map((param) =>
+            this.container ? this.container.providers.get(param) : null,
+          );
+
+        const instance = this.injector.instantiate(paramsForConstructor);
+        const instanceWrapper = new InstanceWrapper<T>(this, instance);
+        this.instanceWrapper = instanceWrapper;
+        return await instanceWrapper.init();
+      case Scope.TRANSIENT: {
+        const paramsForConstructor = this.injector
+          .getConstructorParams()
+          .map((param) => this.container.providers.get(param));
+
+        const instance = this.injector.instantiate(paramsForConstructor);
+        const instanceWrapper = new InstanceWrapper<T>(this, instance);
+        this.instances.set(context, instanceWrapper);
+        return instanceWrapper.init();
+      }
+      case Scope.PER_PROCESS: {
+        if (this.instances.has(context)) return this.instances.get(context);
+        const paramsForConstructor = this.injector
+          .getConstructorParams()
+          .map((param) => this.container.providers.get(param));
+
+        const instance = this.injector.instantiate(paramsForConstructor);
+        const instanceWrapper = new InstanceWrapper<T>(this, instance);
+        this.instances.set(context, instanceWrapper);
+        return instanceWrapper.init();
+      }
+    }
+  }
+
   private async _getFunction(
     context: ContextId,
     provider = this.provider as Type<T>,
   ): Promise<InstanceWrapper> {
-    if (this.instanceWrapper) {
-      return this.instanceWrapper;
-    }
-
-    const paramsForConstructor = this.injector
-      .getConstructorParams()
-      .map((param) =>
-        this.container ? this.container.providers.get(param) : null,
-      );
-
-    const instance = this.injector.instantiate(paramsForConstructor);
-    const instanceWrapper = new InstanceWrapper<T>(this, instance);
-    this.instanceWrapper = instanceWrapper;
-    return await instanceWrapper.init();
+    const reflector = new Reflector(provider);
+    return this._getInstance(
+      context,
+      provider,
+      reflector.get(SCOPE_DATA) ||
+        reflector.get<ServiceData>(SERVICE_DATA)?.data?.scope ||
+        Scope.DEFAULT,
+    );
   }
 
   private async _getClass(context: ContextId): Promise<InstanceWrapper> {
     const provider = this.provider as ClassProvider<T>;
 
-    switch (provider.scope || Scope.DEFAULT) {
+    const scope =
+      provider.scope ||
+      this.classReflector.get<ServiceOptions>(SERVICE_DATA).scope ||
+      Scope.DEFAULT;
+
+    switch (scope) {
       case Scope.DEFAULT:
         return this._getFunction(context, provider.useClass);
       case Scope.TRANSIENT: {
@@ -233,13 +282,6 @@ export class InstanceWrapper<T = any> {
 
     const { instance } = await instanceManager.get(context);
 
-    console.log(
-      'instance',
-      instance,
-      'intance.canActivate',
-      instance.canActivate,
-    );
-
     return instance;
   }
 
@@ -272,7 +314,6 @@ export class InstanceWrapper<T = any> {
         });
     }
 
-    console.log(`Running ${classGuards.length} class guards`);
     for (const guard of classGuards) {
       if (!(await guard.canActivate(context)))
         throw new CustomError({

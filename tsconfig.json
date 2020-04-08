@@ -14,6 +14,6 @@
     "incremental": true,
     "declarationDir": "./dist"
   },
-  "include": ["src/**/*", "tests/core"],
+  "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"]
 }

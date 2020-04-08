@@ -5,11 +5,16 @@ import {
   ModuleOptions,
   ModuleMetadata,
 } from '../interfaces/module/module.interface';
-import { PAPER_MODULE_OPTIONS, USE_MODULE } from '../contants';
+import {
+  PAPER_MODULE_OPTIONS,
+  USE_MODULE,
+  CONTROLLER_OPTIONS,
+} from '../contants';
 import { Type } from '../interfaces/type.interface';
-import { Logger } from '../utils/logger';
+import { Logger, LoggerLevel } from '../utils/logger';
 import { Module as ModuleDecorator } from './module.decorator';
 import { InstanceManager } from '../injector/instance-manager';
+import { ControllerWrapper } from '../controller/controller-wrapper';
 
 export class Module {
   private logger = new Logger(this.moduleClass.name);
@@ -56,24 +61,52 @@ export class Module {
   }
 
   public async init() {
-    this.logger.info(`Starting to Initialize ${this.moduleClass.name}`);
+    this.logger.verbose(`Starting to Initialize ${this.moduleClass.name}`);
     // Initialize the rest of the Modules first
     await this.loadImportedModules();
     await this.loadProviders();
+    await this.loadControllers();
+
+    this.container.modules.set(this.moduleClass, this);
+    this.logger.verbose(`Done Initializing ${this.moduleClass.name}`);
 
     this._loaded = true;
   }
 
+  private async loadControllers() {
+    return Promise.all(
+      Array.from(this.controlers.values())
+        .map((provider) =>
+          this.container.providers.get(
+            typeof provider === 'function' ? provider : provider['useClass'],
+          ),
+        )
+        .filter(
+          (instanceManager) =>
+            instanceManager &&
+            instanceManager.classReflector.get(CONTROLLER_OPTIONS),
+        )
+        .map(async (instanceManager) =>
+          new ControllerWrapper(
+            this.container,
+            await instanceManager.get(),
+          ).init(),
+        ),
+    );
+  }
+
   private async loadProviders() {
-    Array.from(this.controlers.values())
-      .map((provider) => this.getClassFromProvider(provider, 'useClass'))
+    Array.from([...this.providers.values(), ...this.controlers])
       .filter(
-        (providerClass) =>
-          providerClass && !this.container.providers.has(providerClass),
+        (provider) =>
+          this.getClassFromProvider(provider, 'useClass') &&
+          !this.container.providers.has(
+            this.getClassFromProvider(provider, 'useClass'),
+          ),
       )
       .forEach((provider) => {
         this.container.providers.set(
-          provider,
+          this.getClassFromProvider(provider, 'useClass'),
           new InstanceManager(this.container, provider),
         );
       });

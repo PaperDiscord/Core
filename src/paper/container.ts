@@ -1,6 +1,10 @@
 import { Client, Message, MessageEmbed } from 'discord.js';
 import { Module } from '../module/module';
-import { Provider } from '../interfaces/module/provider';
+import {
+  Provider,
+  ModuleProvider,
+  ClassProvider,
+} from '../interfaces/module/provider';
 import { Context } from '../context/context';
 import { ContextId } from '../context/context-id.interface';
 import { Type } from '../interfaces/type.interface';
@@ -20,6 +24,7 @@ import { EventHandler } from '../event/event-handler';
 import { EventEmitter } from 'events';
 import { PaperDiscordFactory } from './factory';
 import { CanActivate } from '../interfaces/guards/can-activate.interface';
+import { Reflector } from '../reflector/reflector';
 
 export class PaperContainer extends EventEmitter {
   private readonly logger = new Logger(`PaperContainer`);
@@ -61,20 +66,15 @@ export class PaperContainer extends EventEmitter {
     }
   }
 
-  private async setupControllers() {
-    this.logger.verbose(
-      `Setting Up Controllers ${Array.from(this.providers.values()).length}`,
-    );
-    return Promise.all(
-      Array.from(this.providers.values())
-        .filter((instanceManager) =>
-          instanceManager.classReflector.get(CONTROLLER_OPTIONS),
-        )
-        .map(async (instanceManager) =>
-          new ControllerWrapper(this, await instanceManager.get()).init(),
-        ),
-    );
+  public async addModule(moduleClass: Type<any> | ModuleProvider) {
+    if (typeof moduleClass !== 'function') moduleClass = moduleClass.useModule;
+
+    const module = new Module(this, moduleClass);
+
+    await module.init();
   }
+
+  private async setupControllers() {}
 
   private async getCommmandHandlerForCommand(
     commandMessage: Message,
@@ -149,6 +149,16 @@ export class PaperContainer extends EventEmitter {
       : null;
   }
 
+  public async addProvider(provider: Provider | Type<any>) {
+    const instanceManager = new InstanceManager(this, provider);
+
+    this.providers.set(instanceManager.getProviderClass(), instanceManager);
+  }
+
+  public async addService(provider: Provider | Type<any>) {
+    await this.addProvider(provider);
+  }
+
   private async setupCommandHandlersCalling() {
     this.client.on('message', async (message) => {
       if (message.author.bot) return;
@@ -202,12 +212,19 @@ export class PaperContainer extends EventEmitter {
           instanceManager.classReflector.get(EVENT_METHOD_OPTIONS),
         )
         .map(async (instanceManager) => {
-          console.log(
-            `Setting up for ${instanceManager.getProviderClass().name}`,
-          );
           return new EventWrapper(this, await instanceManager.get()).init();
         }),
     );
+  }
+
+  public async addController(controller: Type<any> | ClassProvider) {
+    const instanceManager = new InstanceManager(this, controller);
+
+    this.providers.set(instanceManager.getProviderClass(), instanceManager);
+    const controllerWrapper = await new ControllerWrapper(
+      this,
+      await instanceManager.get(),
+    ).init();
   }
 
   private async setupDiscordEventEmitter() {
