@@ -18,3 +18,5 @@ export type CreateDecoratorFunction<Type = any> = InjectExecutor<Type>;
  * @publicApi
  */
 export interface CreateDecoratorOptions extends InjectExecutors {}
+
+import * as t from './discord-js.interface';
